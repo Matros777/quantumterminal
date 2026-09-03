@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const category = (searchParams.get('category') || '').toLowerCase();
   const q = (searchParams.get('q') || '').trim();
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || 20)));
-  const cursor = (searchParams.get('cursor') || '').trim(); // ISO string; meaning depends on sort
+  const cursor = (searchParams.get('cursor') || '').trim();
   const sort = (searchParams.get('sort') || 'newest').toLowerCase();
 
   const filter: any = { status: 'active' };
@@ -27,31 +27,26 @@ export async function GET(req: Request) {
   }
 
   if (q) {
-    // simple title search (lightweight)
     filter.title = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
   }
 
   let sortSpec: Record<string, 1 | -1> = { createdAt: -1 };
 
   if (sort === 'top_all' || sort === 'top') {
-    // deterministic ordering for pagination
     sortSpec = { upvotesCount: -1, createdAt: -1 };
   } else if (sort === 'top_24h') {
     sortSpec = { upvotesCount: -1, createdAt: -1 };
     filter.createdAt = { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) };
   } else {
-    // newest
     sortSpec = { createdAt: -1 };
   }
 
   if (cursor) {
     if (sort === 'top_all' || sort === 'top' || sort === 'top_24h') {
-      // cursor format: `${upvotesCount}|${createdAtISO}`
       const [votesRaw, createdAtRaw] = cursor.split('|');
       const cursorVotes = Number(votesRaw);
       const cursorDt = new Date(createdAtRaw);
       if (!Number.isNaN(cursorVotes) && !Number.isNaN(cursorDt.getTime())) {
-        // items after cursor = lower votes OR same votes but older
         filter.$or = [
           { upvotesCount: { $lt: cursorVotes } },
           { upvotesCount: cursorVotes, createdAt: { $lt: cursorDt } },
@@ -82,7 +77,6 @@ export async function GET(req: Request) {
     })
     .lean();
 
-  // Attach authorUsername for profile links
   const authorIds = Array.from(new Set(posts.map((p: any) => String(p.authorId)).filter(Boolean)));
   const users = await User.find({ _id: { $in: authorIds } })
     .select({ _id: 1, username: 1 })
@@ -112,7 +106,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  const rl = rateLimit(`community:post:${user.id}`, 5, 60 * 60 * 1000); // 5 posts/hour
+  const rl = rateLimit(`community:post:${user.id}`, 5, 60 * 60 * 1000);
   if (!rl.ok) {
     return NextResponse.json(
       { success: false, error: 'Rate limit exceeded. Please try again later.' },
@@ -154,7 +148,7 @@ export async function POST(req: Request) {
 
   const slug = uniqueSlug(title, randomSuffix());
 
-  const post = await CommunityPost.create({
+  const post: any = await CommunityPost.create({
     authorId: user.id,
     authorEmail: user.email,
     category: categoryRaw,

@@ -6,14 +6,9 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "typecheck": "echo 'TypeScript check skipped'"
+    "typecheck": "tsc --noEmit --skipLibCheck"
   },
-  "keywords": [
-    "crypto",
-    "terminal",
-    "blockchain",
-    "nextjs"
-  ],
+  "keywords": ["crypto", "terminal", "blockchain", "nextjs"],
   "author": "raydenfly",
   "license": "MIT",
   "dependencies": {

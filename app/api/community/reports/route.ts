@@ -6,8 +6,7 @@ import CommunityReport from '@/models/CommunityReport';
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
-  // Reporting can be anonymous (optional), but rate-limit by user if available.
-  const key = user ? `community:report:${user.id}` : `community:report:anon`; // best-effort
+  const key = user ? `community:report:${user.id}` : `community:report:anon`;
   const rl = rateLimit(key, 20, 24 * 60 * 60 * 1000);
   if (!rl.ok) {
     return NextResponse.json(
@@ -38,7 +37,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'Invalid reason' }, { status: 400 });
   }
 
-  const report = await CommunityReport.create({
+  const report: any = await CommunityReport.create({
     targetType,
     targetId,
     reason,
