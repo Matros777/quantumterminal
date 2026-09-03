@@ -4,7 +4,8 @@
   "description": "Quantum Terminal - Crypto Data & Research Platform Bergaya Bloomberg Terminal",
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "npm install && next build --webpack",
+    "build:fast": "next build --webpack",
     "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
