@@ -148,15 +148,15 @@ export async function POST(req: Request) {
 
   const slug = uniqueSlug(title, randomSuffix());
 
-  const post: any = await CommunityPost.create({
+  const post = await CommunityPost.create({
     authorId: user.id,
     authorEmail: user.email,
-    category: categoryRaw,
+    category: categoryRaw as CommunityCategory,
     title,
     body: content,
     coinTags,
     slug,
-  });
+  }) as CommunityPost & { _id: { toString(): string } };
 
-  return NextResponse.json({ success: true, post: { id: String(post._id), slug: post.slug } });
+  return NextResponse.json({ success: true, post: { id: post._id.toString(), slug: post.slug } });
 }

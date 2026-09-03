@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import { getCurrentUser } from '@/lib/auth/session';
 import { rateLimit } from '@/lib/rateLimit';
-import CommunityReport from '@/models/CommunityReport';
+import CommunityReport, { CommunityReportDoc } from '@/models/CommunityReport';
+
+type ReportReason = 'spam' | 'abuse' | 'misinformation' | 'scam' | 'copyright' | 'other';
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
@@ -32,19 +34,19 @@ export async function POST(req: Request) {
   if (!targetId) {
     return NextResponse.json({ success: false, error: 'Missing targetId' }, { status: 400 });
   }
-  const allowedReasons = ['spam', 'abuse', 'misinformation', 'scam', 'copyright', 'other'];
-  if (!allowedReasons.includes(reason)) {
+  const allowedReasons: ReportReason[] = ['spam', 'abuse', 'misinformation', 'scam', 'copyright', 'other'];
+  if (!allowedReasons.includes(reason as ReportReason)) {
     return NextResponse.json({ success: false, error: 'Invalid reason' }, { status: 400 });
   }
 
-  const report: any = await CommunityReport.create({
+  const report = await CommunityReport.create({
     targetType,
     targetId,
-    reason,
+    reason: reason as ReportReason,
     details,
     reporterId: user ? user.id : null,
     reporterEmail: user ? user.email : '',
-  });
+  }) as CommunityReportDoc;
 
-  return NextResponse.json({ success: true, reportId: String(report._id) });
+  return NextResponse.json({ success: true, reportId: report._id.toString() });
 }
