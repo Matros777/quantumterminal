@@ -50,15 +50,18 @@ export interface UploadError {
 }
 
 class ImgBBUploader {
-  private apiKey: string;
+  private apiKey: string | null = null;
   private baseURL: string = 'https://api.imgbb.com/1/upload';
+  private initialized: boolean = false;
 
-  constructor() {
-    const apiKey = process.env.IMGBB_API_KEY;
-    if (!apiKey) {
-      throw new Error('IMGBB_API_KEY environment variable is required');
+  private ensureInitialized() {
+    if (!this.initialized) {
+      this.apiKey = process.env.IMGBB_API_KEY ?? null;
+      if (!this.apiKey) {
+        throw new Error('IMGBB_API_KEY environment variable is required');
+      }
+      this.initialized = true;
     }
-    this.apiKey = apiKey;
   }
 
   /**
@@ -73,6 +76,8 @@ class ImgBBUploader {
     name?: string,
     expiration?: number
   ): Promise<ImgBBResponse> {
+    this.ensureInitialized();
+    
     try {
       // Validate file size (ImgBB max: 32MB)
       if (imageFile instanceof File && imageFile.size > 32 * 1024 * 1024) {
@@ -88,7 +93,7 @@ class ImgBBUploader {
       }
 
       const formData = new FormData();
-      formData.append('key', this.apiKey);
+      formData.append('key', this.apiKey!);
       
       if (imageFile instanceof File) {
         formData.append('image', imageFile);
@@ -182,7 +187,7 @@ class ImgBBUploader {
   }
 }
 
-// Export singleton instance
+// Export singleton instance (lazy)
 const imgbbUploader = new ImgBBUploader();
 export default imgbbUploader;
 

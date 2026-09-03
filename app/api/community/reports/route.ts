@@ -25,7 +25,7 @@ export async function POST(req: Request) {
 
   const targetType = body?.targetType;
   const targetId = (body?.targetId ?? '').toString().trim();
-  const reason = (body?.reason ?? '').toString().trim();
+  const reason = (body?.reason ?? '').toString().trim() as ReportReason;
   const details = (body?.details ?? '').toString().trim();
 
   if (!(targetType === 'post' || targetType === 'comment')) {
@@ -35,14 +35,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'Missing targetId' }, { status: 400 });
   }
   const allowedReasons: ReportReason[] = ['spam', 'abuse', 'misinformation', 'scam', 'copyright', 'other'];
-  if (!allowedReasons.includes(reason as ReportReason)) {
+  if (!allowedReasons.includes(reason)) {
     return NextResponse.json({ success: false, error: 'Invalid reason' }, { status: 400 });
   }
 
   const report = await CommunityReport.create({
     targetType,
     targetId,
-    reason: reason as ReportReason,
+    reason,
     details,
     reporterId: user ? user.id : null,
     reporterEmail: user ? user.email : '',

@@ -1,21 +1,17 @@
 import mongoose from 'mongoose';
 
-if (!process.env.MONGODB_URI) {
-  throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
-}
-
 const uri = process.env.MONGODB_URI;
 const options = {
   bufferCommands: false,
-  serverSelectionTimeoutMS: 10000, // Keep trying to send operations for 10 seconds
-  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-  maxPoolSize: 10, // Maintain up to 10 socket connections
-  minPoolSize: 5, // Maintain a minimum of 5 socket connections
-  maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+  serverSelectionTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+  maxPoolSize: 10,
+  minPoolSize: 5,
+  maxIdleTimeMS: 30000,
 };
 
 declare global {
-  var mongoose: any; // This must be a `var` and not a `let / const`
+  var mongoose: any;
 }
 
 let cached = global.mongoose;
@@ -25,6 +21,10 @@ if (!cached) {
 }
 
 async function connectDB() {
+  if (!uri) {
+    throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
+  }
+
   if (cached.conn) {
     return cached.conn;
   }

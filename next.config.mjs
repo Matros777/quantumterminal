@@ -4,7 +4,6 @@ const nextConfig = {
   
   // Vercel Optimizations
   compress: true,
-  powerByHeader: false,
   
   // Image Optimization
   images: {
