@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 
-const uri = process.env.MONGODB_URI;
 const options = {
   bufferCommands: false,
   serverSelectionTimeoutMS: 10000,
@@ -21,8 +20,15 @@ if (!cached) {
 }
 
 async function connectDB() {
+  const uri = process.env.MONGODB_URI;
+  
   if (!uri) {
     throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
+  }
+
+  // Validate URI scheme
+  if (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://')) {
+    throw new Error(`Invalid scheme, expected "mongodb://" or "mongodb+srv://", got: ${uri.substring(0, 20)}...`);
   }
 
   if (cached.conn) {
@@ -30,11 +36,13 @@ async function connectDB() {
   }
 
   if (!cached.promise) {
+    console.log('🔄 Connecting to MongoDB...');
     cached.promise = mongoose.connect(uri, options).then((mongoose) => {
       console.log('✅ MongoDB connected successfully');
       return mongoose;
     }).catch((error) => {
-      console.error('❌ MongoDB connection error:', error);
+      console.error('❌ MongoDB connection error:', error.message);
+      cached.promise = null;
       throw error;
     });
   }
