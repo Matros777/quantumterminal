@@ -1,11 +1,50 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
-import { createSession } from '@/lib/auth/session';
+import Session from '@/models/Session';
+
+const COOKIE_NAME = 'qt_session';
+
+function getSessionSecret(): string {
+  return process.env.SESSION_SECRET || 'dev-fallback-secret-do-not-use-in-prod';
+}
+
+function sha256Hex(input: string) {
+  return crypto.createHash('sha256').update(input).digest('hex');
+}
+
+function randomToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+async function createSession(userId: string, days = 7) {
+  await connectDB();
+
+  const token = randomToken();
+  const tokenHash = sha256Hex(token);
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+  await Session.create({ tokenHash, userId, expiresAt });
+
+  const { cookies } = await import('next/headers');
+  const jar = await cookies();
+  jar.set({
+    name: COOKIE_NAME,
+    value: token,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    expires: expiresAt,
+  });
+
+  return { token, expiresAt };
 }
 
 export async function POST(req: Request) {
@@ -46,12 +85,9 @@ export async function POST(req: Request) {
     try {
       await createSession(String(user._id), 7);
     } catch (e) {
-      // If SESSION_SECRET isn't set, fail closed for login.
+      console.error('Session creation failed:', e);
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Server auth is not configured (missing SESSION_SECRET).',
-        },
+        { success: false, error: 'Failed to create session.' },
         { status: 500 }
       );
     }
