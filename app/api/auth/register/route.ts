@@ -28,10 +28,13 @@ function slugifyUsername(input: string) {
     .slice(0, 24);
 }
 
-async function generateUniqueUsernameFromEmail(email: string) {
+async function generateUniqueUsernameFromEmail(email: string): Promise<string> {
   const local = email.split('@')[0] ?? 'user';
-  const base = slugifyUsername(local) || 'user';
-
+  let base = slugifyUsername(local) || 'user';
+  
+  // Ensure base is at least 3 chars
+  if (base.length < 3) base = 'user_' + base;
+  
   // 1) Try base
   const existsBase = await User.findOne({ username: base }).select({ _id: 1 }).lean();
   if (!existsBase) return base;
@@ -74,8 +77,6 @@ async function createSession(userId: string, days = 7) {
 
 export async function POST(req: Request) {
   try {
-    await connectDB();
-
     const body = (await req.json()) as { email?: string; password?: string };
     const email = body.email ? normalizeEmail(body.email) : '';
     const password = body.password ?? '';
@@ -87,6 +88,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid email format.' },
+        { status: 400 }
+      );
+    }
+
     if (password.length < 10) {
       return NextResponse.json(
         { success: false, error: 'Password must be at least 10 characters.' },
@@ -94,6 +104,9 @@ export async function POST(req: Request) {
       );
     }
 
+    await connectDB();
+
+    // Check if email exists
     const existing = await User.findOne({ email }).select({ _id: 1 }).lean();
     if (existing) {
       return NextResponse.json(
@@ -102,16 +115,23 @@ export async function POST(req: Request) {
       );
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    // Generate username
     const username = await generateUniqueUsernameFromEmail(email);
-    const user = await User.create({ email, username, passwordHash, role: 'user' });
+
+    // Create user
+    const passwordHash = await bcrypt.hash(password, 12);
+    const user = await User.create({ 
+      email, 
+      username, 
+      passwordHash, 
+      role: 'user' 
+    });
 
     // Auto-login after registration
     try {
       await createSession(String(user._id), 7);
     } catch (e) {
-      // If session creation fails, registration still succeeds
-      console.warn('Session creation after registration failed:', e);
+      console.warn('Session creation failed (registration still succeeded):', e);
     }
 
     return NextResponse.json(
@@ -120,14 +140,16 @@ export async function POST(req: Request) {
         data: {
           id: String(user._id),
           email: user.email,
+          username: user.username,
         },
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Register error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { success: false, error: 'Failed to register.' },
+      { success: false, error: `Failed to register: ${message}` },
       { status: 500 }
     );
   }
