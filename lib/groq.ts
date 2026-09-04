@@ -1,20 +1,13 @@
-import Groq from 'groq-sdk';
+// OpenRouter (OpenAI-compatible) via plain fetch — no extra SDK dependency.
+// Model: dots-studio/dots-3-note-preview:free
 
-const apiKey = process.env.GROQ_API_KEY;
-
-let groq: Groq | null = null;
-
-if (apiKey) {
-    groq = new Groq({
-        apiKey: apiKey,
-    });
-} else {
-    console.warn('GROQ_API_KEY is not set in environment variables.');
-}
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+const MODEL = process.env.OPENROUTER_MODEL || 'dots-studio/dots-3-note-preview:free';
 
 export async function analyzeChartData(formattedData: string, timeFrame: string, ticker: string): Promise<string> {
-    if (!groq) {
-        throw new Error('Groq client not initialized. Check GROQ_API_KEY.');
+    if (!OPENROUTER_API_KEY) {
+        throw new Error('OpenRouter client not initialized. Check OPENROUTER_API_KEY.');
     }
 
     const systemPrompt = `You are QUANTUM AI, a crypto market analyst. 
@@ -41,25 +34,35 @@ export async function analyzeChartData(formattedData: string, timeFrame: string,
   ${formattedData}`;
 
     try {
-        const chatCompletion = await groq.chat.completions.create({
-            messages: [
-                {
-                    role: 'system',
-                    content: systemPrompt,
-                },
-                {
-                    role: 'user',
-                    content: userPrompt,
-                },
-            ],
-            model: 'llama-3.3-70b-versatile',
-            temperature: 0.5,
-            max_tokens: 1024,
+        const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                // Optional: help OpenRouter attribute traffic
+                'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://quantumterminal.vercel.app',
+                'X-Title': 'Quantum Terminal',
+            },
+            body: JSON.stringify({
+                model: MODEL,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt },
+                ],
+                temperature: 0.5,
+                max_tokens: 1024,
+            }),
         });
 
-        return chatCompletion.choices[0]?.message?.content || 'No analysis generated.';
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`OpenRouter API Error ${response.status}: ${errText}`);
+        }
+
+        const data = await response.json();
+        return data?.choices?.[0]?.message?.content || 'No analysis generated.';
     } catch (error: any) {
-        console.error('Groq API Error:', error);
+        console.error('OpenRouter API Error:', error);
         throw new Error(`Failed to analyze data: ${error.message}`);
     }
 }
