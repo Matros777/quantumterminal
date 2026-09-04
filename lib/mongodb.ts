@@ -20,7 +20,8 @@ if (!cached) {
 }
 
 async function connectDB() {
-  const uri = process.env.MONGODB_URI;
+  // Clean stray quotes/spaces around the value
+  const uri = (process.env.MONGODB_URI || '').trim().replace(/^["']+|["']+$/g, '');
   
   if (!uri) {
     throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
